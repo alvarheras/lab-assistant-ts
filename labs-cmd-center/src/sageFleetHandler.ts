@@ -18,6 +18,7 @@ import {
     DepositCargoToFleetInput,
     WithdrawCargoFromFleetInput,
     WarpToCoordinateInput,
+    StartSubwarpInput,
 } from '@staratlas/sage';
 
 import { SageGameHandler } from './sageGameHandler';
@@ -614,6 +615,44 @@ export class SageFleetHandler {
         return ixs;
     }
 
+    async ixSubWarpToCoordinate(fleetPubkey: PublicKey, coordinates: [BN, BN]): Promise<InstructionReturn[]> {
+        const fleetAccount = await this.getFleetAccount(fleetPubkey);
+    
+        if (!fleetAccount.state.Idle && !this._gameHandler.game) {
+            throw 'fleet is not idle (or game is not loaded)';
+        }
+    
+        const ixs: InstructionReturn[] = [];
+    
+        const program = this._gameHandler.program;
+        const key = this._gameHandler.funder;
+        const playerProfile = fleetAccount.data.ownerProfile;
+        const profileFaction = this._gameHandler.getProfileFactionAddress(playerProfile);
+        const fleetKey = fleetPubkey;
+        const gameState = this._gameHandler.gameState as PublicKey;
+        const gameId = this._gameHandler.gameId as PublicKey;
+    
+        const input: StartSubwarpInput = {
+            keyIndex: 0, 
+            toSector: coordinates, 
+        };
+    
+        const ixSubwarp = Fleet.startSubwarp(
+            program,
+            key,
+            playerProfile,
+            profileFaction,
+            fleetKey,
+            gameId,
+            gameState,
+            input,
+        );
+    
+        ixs.push(ixSubwarp);
+    
+        return ixs;
+    }
+
     async ixReadyToExitWarp(fleetPubkey: PublicKey): Promise<InstructionReturn[]> {
         const ixs: InstructionReturn[] = [];
 
@@ -626,4 +665,41 @@ export class SageFleetHandler {
 
         return ixs;
     }
+
+    async ixReadyToExitSubwarp(fleetPubkey: PublicKey): Promise<InstructionReturn[]> {
+        const fleetAccount = await this.getFleetAccount(fleetPubkey);
+
+        const ixs: InstructionReturn[] = [];
+
+        const program = this._gameHandler.program;
+        const cargoProgram = this._gameHandler.cargoProgram;
+        const playerProfile = fleetAccount.data.ownerProfile;
+        const fuelTank = fleetAccount.data.fuelTank;
+        const gameFuelMint = this._gameHandler.game?.data.mints.fuel as PublicKey;
+        const fuelCargoType = this._gameHandler.getCargoTypeAddress(gameFuelMint);
+        const cargoStatsDefinition = this._gameHandler.cargoStatsDefinition as PublicKey;
+        const fuelTokenAccount = await getAssociatedTokenAddress(gameFuelMint, fuelTank, true);
+        const fuelTokenMint = gameFuelMint;
+        const gameId = this._gameHandler.gameId as PublicKey;
+        const gameState = this._gameHandler.gameState as PublicKey;
+
+        const exitSubwarpInstruction = Fleet.movementSubwarpHandler(
+            program,
+            cargoProgram,
+            playerProfile,
+            fleetPubkey,
+            fuelTank,
+            fuelCargoType,
+            cargoStatsDefinition,
+            fuelTokenAccount,
+            fuelTokenMint,
+            gameId,
+            gameState,
+        );
+
+        ixs.push(exitSubwarpInstruction);
+
+        return ixs;
+    }
+
 }
