@@ -27,7 +27,7 @@ See [README.md](labs-cmd-center/README.md) for more details.
     - [ ] movement handler (?)
     - [x] warp cordinate
     - [ ] warp lane (?)
-- [ ] a fleet can move to sector coordinates (subwarp)
+- [x] a fleet can move to sector coordinates (subwarp)
 - [ ] a fleet can survey sector scan for SDU
 ```
 
